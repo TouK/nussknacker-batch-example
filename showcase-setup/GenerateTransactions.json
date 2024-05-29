@@ -1,0 +1,90 @@
+{
+  "metaData" : {
+    "id" : "GenerateTransactions",
+    "additionalFields" : {
+      "description" : null,
+      "properties" : {
+        "parallelism" : "1",
+        "spillStateToDisk" : "true",
+        "useAsyncInterpretation" : "",
+        "checkpointIntervalInSeconds" : ""
+      },
+      "metaDataType" : "StreamMetaData"
+    }
+  },
+  "nodes" : [
+    {
+      "id" : "Generate transactions",
+      "ref" : {
+        "typ" : "table",
+        "parameters" : [
+          {
+            "name" : "Table",
+            "expression" : {
+              "language" : "spel",
+              "expression" : "'transactions_generator'"
+            }
+          }
+        ]
+      },
+      "additionalFields" : {
+        "description" : null,
+        "layoutData" : {
+          "x" : 0,
+          "y" : 0
+        }
+      },
+      "type" : "Source"
+    },
+    {
+      "id" : "Format date",
+      "varName" : "formattedDate",
+      "value" : {
+        "language" : "spel",
+        "expression" : "#input.datetime.format(#DATE_FORMAT.lenientFormatter('yyyy-MM-dd'))"
+      },
+      "additionalFields" : {
+        "description" : null,
+        "layoutData" : {
+          "x" : 0,
+          "y" : 150
+        }
+      },
+      "type" : "Variable"
+    },
+    {
+      "id" : "Output to directory",
+      "ref" : {
+        "typ" : "table",
+        "parameters" : [
+          {
+            "name" : "Table",
+            "expression" : {
+              "language" : "spel",
+              "expression" : "'transactions'"
+            }
+          },
+          {
+            "name" : "Value",
+            "expression" : {
+              "language" : "spel",
+              "expression" : "{\n    datetime: #input.datetime,\n    client_id: #input.client_id,\n    amount: #input.amount,\n    date: #formattedDate\n}"
+            }
+          }
+        ]
+      },
+      "endResult" : null,
+      "isDisabled" : null,
+      "additionalFields" : {
+        "description" : null,
+        "layoutData" : {
+          "x" : 0,
+          "y" : 300
+        }
+      },
+      "type" : "Sink"
+    }
+  ],
+  "additionalBranches" : [
+  ]
+}

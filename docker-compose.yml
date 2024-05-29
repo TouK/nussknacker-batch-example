@@ -1,0 +1,82 @@
+services:
+  jobmanager:
+    build: ./flink/
+    restart: unless-stopped
+    ports:
+      - "3031:8081"
+      - "9249:9249"
+    entrypoint: /flink-entrypoint.sh
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 40
+        parallelism.default: 2
+      - TABLES_DEFINITION_FILE=/opt/flink/data/transactions-data/tables-definition.sql
+    volumes:
+      - ./flink/flink-conf.yaml:/tmp/flink-conf.yaml
+      - ./flink/log4j-console.properties:/opt/flink/conf/log4j-console.properties
+      - ./flink/flink-entrypoint.sh:/flink-entrypoint.sh
+      - ./transactions-data/:/opt/flink/data/transactions-data
+      - storage_flink:/opt/flink/data
+
+  taskmanager:
+    build: ./flink/
+    restart: unless-stopped
+    ports:
+      - "3063:9069"
+      - "9009:9009"
+      - "9008:9008"
+      - "5010:5010"
+    entrypoint: /flink-entrypoint.sh
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 40
+        parallelism.default: 2
+      - TABLES_DEFINITION_FILE=/opt/flink/data/transactions-data/tables-definition.sql
+    depends_on:
+      - jobmanager
+    volumes:
+      - ./flink/flink-conf.yaml:/tmp/flink-conf.yaml
+      - ./flink/flink-entrypoint.sh:/flink-entrypoint.sh
+      - ./flink/log4j-console.properties:/opt/flink/conf/log4j-console.properties
+      - ./transactions-data/:/opt/flink/data/transactions-data
+      - storage_flink:/opt/flink/data
+
+  designer:
+#    TODO: change to release or dedicated preview
+    image: touk/nussknacker:1.16.0-staging-2024-05-10-18328-1a07bbab5-SNAPSHOT_scala-2.12
+    ports:
+      - "8080:8080"
+    environment:
+      FLINK_REST_URL: http://jobmanager:8081
+      INPUT_CONFIG_RESOLVE_ENV_VARIABLES: "false"
+      TABLES_DEFINITION_FILE: "/opt/nussknacker/conf/tables-definition.sql"
+      CONFIG_FILE: "/opt/nussknacker/conf/batch.conf"
+    volumes:
+      - ./nussknacker/batch.conf:/opt/nussknacker/conf/batch.conf
+      - ./transactions-data/tables-definition.sql:/opt/nussknacker/conf/tables-definition.sql
+      - storage_flink:/opt/flink/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl localhost:8080/api/app/healthCheck"]
+      interval: 5s
+      retries: 10
+    depends_on:
+      jobmanager:
+        condition: service_started
+      taskmanager:
+        condition: service_started
+
+  designer_showcase_helper:
+    build: ./showcase-setup/
+    depends_on:
+      designer:
+        condition: service_healthy
+
+volumes:
+  storage_flink:
+    name: nussknacker_batch_storage_flink
