@@ -5,7 +5,7 @@ This is a demo for upcoming Batch mode in Nussknacker. It is an interactive part
 ## Installation 
 1. Make sure you have installed required dependencies:
    - `git` - https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
-   - `docker` - https://git-scm.com/downloads
+   - `docker` - https://docs.docker.com/get-docker/
 2. Clone this repository using git - `git clone https://github.com/TouK/nussknacker-batch-example.git` - this will make this repository available on your machine
 3. Deploy the services using docker by running the `start.sh` shell script
    - If you're not able to run the shell script, you can deploy the services manually with `docker compose -f docker-compose.yml up -d --build`
