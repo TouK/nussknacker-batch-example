@@ -1,7 +1,6 @@
 # Nussknacker Batch Example
 
-[//]: # (TODO: Update blog post link after its uploaded)
-This is a demo for upcoming Batch mode in Nussknacker. It is an interactive part of [this blog post](https://nussknacker.io/blog/name-of-blog/).
+This is a demo for upcoming Batch mode in Nussknacker. It is an interactive part of [this blog post](https://nussknacker.io/blog/batch-processing-on-apache-flink/).
 
 ## Installation 
 1. Make sure you have installed required dependencies:
