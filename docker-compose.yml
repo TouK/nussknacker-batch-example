@@ -48,7 +48,6 @@ services:
       - storage_flink:/opt/flink/data
 
   designer:
-#    TODO: change to release or dedicated preview
     image: touk/nussknacker:1.16.0-staging-2024-05-10-18328-1a07bbab5-SNAPSHOT_scala-2.12
     ports:
       - "8080:8080"
