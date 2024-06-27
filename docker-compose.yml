@@ -2,6 +2,8 @@ services:
   jobmanager:
     build: ./flink/
     restart: unless-stopped
+    networks:
+      - nussknacker-iceberg
     ports:
       - "3031:8081"
       - "9249:9249"
@@ -14,6 +16,12 @@ services:
         taskmanager.numberOfTaskSlots: 40
         parallelism.default: 2
       - TABLES_DEFINITION_FILE=/opt/flink/data/transactions-data/tables-definition.sql
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - AWS_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+      - S3_ENDPOINT=http://minio:9000
+      - S3_PATH_STYLE_ACCESS=true
     volumes:
       - ./flink/flink-conf.yaml:/tmp/flink-conf.yaml
       - ./flink/log4j-console.properties:/opt/flink/conf/log4j-console.properties
@@ -24,6 +32,8 @@ services:
   taskmanager:
     build: ./flink/
     restart: unless-stopped
+    networks:
+      - nussknacker-iceberg
     ports:
       - "3063:9069"
       - "9009:9009"
@@ -38,6 +48,12 @@ services:
         taskmanager.numberOfTaskSlots: 40
         parallelism.default: 2
       - TABLES_DEFINITION_FILE=/opt/flink/data/transactions-data/tables-definition.sql
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - AWS_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+      - S3_ENDPOINT=http://minio:9000
+      - S3_PATH_STYLE_ACCESS=true
     depends_on:
       - jobmanager
     volumes:
@@ -49,6 +65,8 @@ services:
 
   designer:
     image: touk/nussknacker:1.16.0-staging-2024-05-10-18328-1a07bbab5-SNAPSHOT_scala-2.12
+    networks:
+      - nussknacker-iceberg
     ports:
       - "8080:8080"
     environment:
@@ -72,10 +90,81 @@ services:
 
   designer_showcase_helper:
     build: ./showcase-setup/
+    networks:
+      - nussknacker-iceberg
     depends_on:
       designer:
         condition: service_healthy
 
+  catalog:
+    image: projectnessie/nessie:0.76.6
+    networks:
+      - nussknacker-iceberg
+    ports:
+      - 19120:19120
+    environment:
+      - quarkus.otel.exporter.otlp.endpoint=http://jaeger:4317
+
+  jaeger:
+    image: docker.io/jaegertracing/all-in-one:1.58.1
+    networks:
+      - nussknacker-iceberg
+    ports:
+      # Jaeger gRPC collector, used by Nessie
+      - "4317:4317"
+      # Jaeger UI, browse to http://localhost:16686 to view traces
+      - "16686:16686"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    healthcheck:
+      test: "echo -e 'GET / HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' | nc localhost 16686 | grep -q '200 OK'"
+      interval: 5s
+      timeout: 2s
+      retries: 15
+
+  minio:
+    image: minio/minio
+    hostname: minio
+    networks:
+      nussknacker-iceberg:
+        aliases:
+          - warehouse.minio
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
+      - MINIO_DOMAIN=minio
+      - MINIO_REGION_NAME=us-east-1
+      - MINIO_REGION=us-east-1
+    ports:
+      - 9001:9001
+      - 9000:9000
+    command: [ "server", "/data", "--console-address", ":9001" ]
+
+  mc:
+    depends_on:
+      - minio
+    image: minio/mc
+    networks:
+      - nussknacker-iceberg
+    environment:
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - AWS_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc config host add minio http://minio:9000 admin password) do echo '...waiting...' && sleep 1; done;
+      /usr/bin/mc rm -r --force minio/warehouse;
+      /usr/bin/mc mb minio/warehouse;
+      /usr/bin/mc mb minio/iceberg;
+      /usr/bin/mc policy set public minio/warehouse;
+      /usr/bin/mc policy set public minio/iceberg;
+      tail -f /dev/null
+      "
+
 volumes:
   storage_flink:
     name: nussknacker_batch_storage_flink
+
+networks:
+  nussknacker-iceberg:
